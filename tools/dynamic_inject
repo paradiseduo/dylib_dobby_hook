@@ -1,0 +1,45 @@
+#!/bin/bash
+
+app_name="$1"
+dylib_path="$2"
+
+if [ "$#" -ne 2 ]; then
+    echo -e "\033[31mUsage: $0 <app_name> <dylib_path>\033[0m"
+    exit 1
+fi
+
+if [[ "$dylib_path" != /* ]]; then
+    dylib_path="$(pwd)/$dylib_path"
+fi
+
+if [ ! -f "$dylib_path" ]; then
+    echo -e "\033[31mError: [$dylib_path] does not exist.\033[0m"
+    exit 1
+fi
+
+# 检查 app_name 是否是完整路径
+if [[ "$app_name" == /* ]]; then
+    app_path="$app_name"
+else
+    app_path="/Applications/${app_name}.app/Contents/MacOS/${app_name}"
+fi
+
+if [ ! -f "$app_path" ]; then
+    echo -e "\033[31mError: Application [$app_path] does not exist.\033[0m"
+    exit 1
+fi
+
+
+check_sip_status() {
+    sip_status=$(csrutil status | grep -i "enabled")
+    if [[ ! -z "$sip_status" ]]; then
+        echo -e "\033[31mError: System Integrity Protection (SIP) is enabled. Please disable SIP to continue.\033[0m"
+        exit 1
+    fi
+}
+
+check_sip_status
+
+echo "dylib_path: $dylib_path"
+echo "app_path: $app_path"
+env DYLD_INSERT_LIBRARIES="$dylib_path" "${app_path}"

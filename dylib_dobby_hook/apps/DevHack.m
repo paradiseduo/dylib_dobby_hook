@@ -2,16 +2,16 @@
 //  DevHack.m
 //  dylib_dobby_hook
 //
-//  Created by 马治武 on 2024/4/4.
+//  Created by voidm on 2024/4/4.
 //
 
 #import <Foundation/Foundation.h>
 #import "Constant.h"
-#import "dobby.h"
+#import "tinyhook.h"
 #import "MemoryUtils.h"
 #import <objc/runtime.h>
 #include <mach-o/dyld.h>
-#import "HackProtocol.h"
+#import "HackProtocolDefault.h"
 #include <sys/ptrace.h>
 #import <AppKit/AppKit.h>
 #import "common_ret.h"
@@ -72,7 +72,7 @@
 @end
 
 
-@interface DevHack : NSObject <HackProtocol>
+@interface DevHack : HackProtocolDefault
 
 //+ (NSWindow *)myWindow;
 @end
@@ -98,7 +98,7 @@ static NSWindow *myWindow = nil;
 
 // 菜单点击事件
 + (void)mem_event:(id)sender {
-    NSLog(@">>>>> mem_event");
+    NSLogger(@">>>>> mem_event");
     // [[Minesweeper+815D8] + 40]
     // mov        rbx, qword [qword_1000815d0]
     // mov        qword [rbx+0x40], rcx
@@ -112,17 +112,17 @@ static NSWindow *myWindow = nil;
     // 读写内存
 //    uintptr_t *ret2 = (uintptr_t *)(addressPtr + 0x40);
 //    uintptr_t value = *ret2;
-//    NSLog(@">>>>>> byteValue :%lu",value);
+//    NSLogger(@"byteValue :%lu",value);
 //    *ret2 = 1;
 //    value = *ret2;
-//    NSLog(@">>>>>> byteValue :%lu",value);
+//    NSLogger(@"byteValue :%lu",value);
     
-    NSLog(@">>>>>> mem_event over");
+    NSLogger(@"mem_event over");
 
 }
 
 + (void)draw_event:(id)sender {
-    NSLog(@">>>>> draw_event");
+    NSLogger(@">>>>> draw_event");
       
     // 创建一个 NSApplication 实例
     if (myWindow==nil) {
@@ -159,33 +159,88 @@ static NSWindow *myWindow = nil;
            // [NSApp activateIgnoringOtherApps:YES];
         }
     }
-    NSLog(@">>>>>> draw_event over");
+    NSLogger(@"draw_event over");
 }
 
 - (BOOL)hack {
     
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        // 在这里执行你的代码
-        NSLog(@">>>>>> 代码延迟执行了 1 秒");
-        NSLog(@">>>>>> 添加自定义菜单");
-        
-        NSMenu *mainMenu = [NSApplication sharedApplication].mainMenu;
-        // 创建一个与独立的菜单项
-        NSMenuItem *newMenuItem = [[NSMenuItem alloc] initWithTitle:@"menu_new" action:nil keyEquivalent:@""];
-        NSMenuItem *subMenuItem1 = [[NSMenuItem alloc] initWithTitle:@"mem_event" action:NSSelectorFromString(@"mem_event:") keyEquivalent:@""];
-        [subMenuItem1 setTarget:self.class];
-        NSMenuItem *subMenuItem2 = [[NSMenuItem alloc] initWithTitle:@"draw_event" action:@selector(draw_event:) keyEquivalent:@""];
-        [subMenuItem2 setTarget:DevHack.class];
-        // 创建一个子菜单并将子菜单项添加进去
-        NSMenu *newMenu = [[NSMenu alloc] initWithTitle:@"New Menu [HOOK]"];
-        [newMenu addItem:subMenuItem1];
-        [newMenu addItem:subMenuItem2];
-        // 将子菜单添加到父菜单项
-        [newMenuItem setSubmenu:newMenu];
-        [mainMenu addItem:newMenuItem];
-    });
+//    手动定时监测菜单
+//    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+//        while (true) {
+//            // 每 5 秒执行一次
+//            sleep(5);
+//            NSLogger(@"allWindows");
+//            // 在主线程上异步执行窗口信息获取和日志记录
+//            dispatch_async(dispatch_get_main_queue(), ^{
+//                NSArray<NSWindow *> *allWindows = [NSApplication sharedApplication].windows;
+//                // 遍历所有窗口，打印窗口信息
+//                for (NSWindow *window in allWindows) {
+//                    NSViewController *viewController = window.contentViewController;
+//                    NSLogger(@"窗口类名: %@, 关联视图控制器: %@", NSStringFromClass([window class]), viewController ? viewController : @"无");
+//                }
+//            });
+//        }
+//    });
     
-        
+//    -[_TtC13App_Cleaner_822BaseFeaturesController onAppDidFinishLaunching]:
+    
+    
+
+    
+    
+//    添加菜单
+//    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+//        // 在这里执行你的代码
+//        NSLogger(@"代码延迟执行了 1 秒");
+//        NSLogger(@"添加自定义菜单");
+//        
+//        NSMenu *mainMenu = [NSApplication sharedApplication].mainMenu;
+//        // 创建一个与独立的菜单项
+//        NSMenuItem *newMenuItem = [[NSMenuItem alloc] initWithTitle:@"menu_new" action:nil keyEquivalent:@""];
+//        NSMenuItem *subMenuItem1 = [[NSMenuItem alloc] initWithTitle:@"mem_event" action:NSSelectorFromString(@"mem_event:") keyEquivalent:@""];
+//        [subMenuItem1 setTarget:self.class];
+//        NSMenuItem *subMenuItem2 = [[NSMenuItem alloc] initWithTitle:@"draw_event" action:@selector(draw_event:) keyEquivalent:@""];
+//        [subMenuItem2 setTarget:DevHack.class];
+//        // 创建一个子菜单并将子菜单项添加进去
+//        NSMenu *newMenu = [[NSMenu alloc] initWithTitle:@"New Menu [HOOK]"];
+//        [newMenu addItem:subMenuItem1];
+//        [newMenu addItem:subMenuItem2];
+//        // 将子菜单添加到父菜单项
+//        [newMenuItem setSubmenu:newMenu];
+//        [mainMenu addItem:newMenuItem];
+//    });
+    
+    
+//    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(10 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+//        // 在这里执行你的代码
+//        NSLogger(@">>>>>>> 代码延迟执行了10秒");
+//        // 获取当前应用程序的所有窗口
+//        NSArray<NSWindow *> *allWindows = [NSApplication sharedApplication].windows;
+//
+//        NSString *viewControllerClassName = @"Licensing.CMLicensingViewController";
+//        Class viewControllerClass = NSClassFromString(viewControllerClassName);
+//
+//        // 遍历所有窗口，查找目标窗口
+//        for (NSWindow *window in allWindows) {
+//            NSLogger(@"Window class name: %@", NSStringFromClass([window class]));
+//            //            [window orderOut:nil]; // 隐藏窗口
+//            NSViewController *viewController = window.contentViewController;
+//            if (viewController != nil) {
+//                // 窗口关联了一个视图控制器
+//                NSLogger(@"Window is associated with view controller: %@", viewController);
+//                if ([viewController isKindOfClass:viewControllerClass]) {
+//                    NSLogger(@"Window is associated with view controller: %@", viewController);
+//                    // 隐藏窗口
+//                    // [window orderOut:nil];
+//                    // 或者销毁窗口
+//                    // [window close];
+//                }
+//            } else {
+//                // 窗口没有关联视图控制器
+//                NSLogger(@"Window is not associated with any view controller");
+//            }
+//        }
+//    });
 //    Class WinControllerClass = NSClassFromString(@"mac_app_dev_swift.ViewController");
 //    SEL viewDidLoadSeletor = NSSelectorFromString(@"viewDidLoad");
 //    Method originalMethod = class_getInstanceMethod(WinControllerClass, viewDidLoadSeletor);
@@ -201,7 +256,7 @@ static NSWindow *myWindow = nil;
 //    ];
     
         
-////    DobbyHook((void *)viewDidLoadImp, (void *)my_viewDidLoad, (void *)&viewDidLoadImp_ori);
+////    tiny_hook((void *)viewDidLoadImp, (void *)my_viewDidLoad, (void *)&viewDidLoadImp_ori);
 //    
 //    
 //    
@@ -213,7 +268,7 @@ static NSWindow *myWindow = nil;
 //    NSString *printHelloCode = @"55 48 89 E5 48 8D 3D ?? ?? ?? ?? B0 00 E8 4C 2B 00 00 5D C3";
 //    uintptr_t globalOffset = [[MemoryUtils searchMachineCodeOffsets:(NSString *)searchFilePath machineCode:(NSString *)printHelloCode count:(int)1][0] unsignedIntegerValue];
 //    intptr_t _printHelloPt = [MemoryUtils getPtrFromGlobalOffset:imageIndex targetFunctionOffset:(uintptr_t)globalOffset reduceOffset:(uintptr_t)fileOffset];
-//    NSLog(@">>>>>> _printHelloPt %ld",_printHelloPt);
+//    NSLogger(@"_printHelloPt %ld",_printHelloPt);
 //    // 将函数地址转换为函数指针类型
 //    CPrintHelloPointer printHelloFun = (CPrintHelloPointer)_printHelloPt;
 //      // 调用函数
@@ -224,23 +279,23 @@ static NSWindow *myWindow = nil;
 //    NSString *intRetOneCode = @"55 48 89 E5 48 8D 3D ?? ?? ?? ?? B0 00 E8 2C 2B 00 00 B8 01 00 00 00 5D C3";
 //    globalOffset = [[MemoryUtils searchMachineCodeOffsets:(NSString *)searchFilePath machineCode:(NSString *)intRetOneCode count:(int)1][0] unsignedIntegerValue];
 //    intptr_t _intRetOneCodePt = [MemoryUtils getPtrFromGlobalOffset:imageIndex targetFunctionOffset:(uintptr_t)globalOffset reduceOffset:(uintptr_t)fileOffset];
-//    NSLog(@">>>>>> _intRetOneCodePt %ld",_intRetOneCodePt);
+//    NSLogger(@"_intRetOneCodePt %ld",_intRetOneCodePt);
 //    // 将函数地址转换为函数指针类型
 //    CRetOnePointer retOneFun = (CRetOnePointer)_intRetOneCodePt;
 //      // 调用函数
 //    int ret = retOneFun();
-//    NSLog(@">>>>>> retOneFun ret %d",ret);
+//    NSLogger(@"retOneFun ret %d",ret);
 //    
 //    // int addMethod(int, int)
 //    NSString *intAddMethodCode = @"55 48 89 E5 48 83 EC 10 89 7D FC 89 75 F8 48 8D 3D ?? ?? ?? ?? B0 00 E8 02 2B 00 00 8B 45 FC 03 45 F8 48 83 C4 10 5D C3";
 //    globalOffset = [[MemoryUtils searchMachineCodeOffsets:(NSString *)searchFilePath machineCode:(NSString *)intAddMethodCode count:(int)1][0] unsignedIntegerValue];
 //    intptr_t _intAddMethodCodePt = [MemoryUtils getPtrFromGlobalOffset:imageIndex targetFunctionOffset:(uintptr_t)globalOffset reduceOffset:(uintptr_t)fileOffset];
-//    NSLog(@">>>>>> _intAddMethodCodePt %ld",_intAddMethodCodePt);
+//    NSLogger(@"_intAddMethodCodePt %ld",_intAddMethodCodePt);
 //    // 将函数地址转换为函数指针类型
 //    CRetAddMethodPointer retAddMethod = (CRetAddMethodPointer)_intAddMethodCodePt;
 //    // 调用函数
 //    int ret2 = retAddMethod(1,2);
-//    NSLog(@">>>>>> retAddMethod ret %d",ret2);
+//    NSLogger(@"retAddMethod ret %d",ret2);
 //    
 //    // 使用 void * 类型作为通用指针
 //    // void *functionAddress = (void *)_intAddMethodCodePt;
@@ -261,13 +316,13 @@ IMP originalMethodIMP = nil;
 // 通过 swizzled 来 hook viewDidLoad
 - (void)hk_viewDidLoad {
     // NSString *ret = ((NSString *(*)(id, SEL))KD_MD5IMP)(self, @selector(KD_MD5));
-    NSLog(@">>>>>> my_viewDidLoad is called with self: %@ and selector: %@", self, NSStringFromSelector(_cmd));
+    NSLogger(@"my_viewDidLoad is called with self: %@ and selector: %@", self, NSStringFromSelector(_cmd));
     ((void *(*)(id, SEL))originalMethodIMP)(self, _cmd);
     // methodPointer(self,_cmd);
 }
 
 
-// 通过 DobbyHook 来 hook viewDidLoad
+// 通过 tiny_hook 来 hook viewDidLoad
 int (*viewDidLoadImp_ori)(void);
 void my_viewDidLoad(id self, SEL _cmd) {
     // self：指向当前对象实例的指针。在实例方法中，self 指向调用该方法的对象实例。在类方法中，self 指向类本身。
@@ -275,7 +330,7 @@ void my_viewDidLoad(id self, SEL _cmd) {
     // int (*hook_device_id_ori)(uint64_t arg0, uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4);
     // return hook_device_id_ori(arg0,arg1,arg2,arg3,arg4);
 
-    NSLog(@">>>>>> viewDidAppear is hooked!");
+    NSLogger(@"viewDidAppear is hooked!");
     ((void(*)(id, SEL))viewDidLoadImp_ori)(self, _cmd);
 }
 
@@ -329,18 +384,18 @@ void fuckPoint(void){
         
     // 一级指针:
     // 0x123: 1
-    intptr_t *a = (void *)0x123;
-    int aValue = (int)*a;
+//    intptr_t *a = (void *)0x123;
+//    int aValue = (int)*a;
     
     // 获取变量的指针
-    intptr_t* addressOfA =(void *) &aValue;
+//    intptr_t* addressOfA =(void *) &aValue;
     
     // 二级指针:
     // 0x123: 0x456
     // 0x456: 2
-    intptr_t* a2 = (void *)0x123;
-    intptr_t* b2 = (void *)*a2;
-    int value = (int)*b2;
+//    intptr_t* a2 = (void *)0x123;
+//    intptr_t* b2 = (void *)*a2;
+//    int value = (int)*b2;
 
 }
 // FUCK 指针 END

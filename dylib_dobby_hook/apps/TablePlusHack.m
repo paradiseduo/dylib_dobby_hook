@@ -7,35 +7,23 @@
 
 #import <Foundation/Foundation.h>
 #import "Constant.h"
-#import "dobby.h"
+#import "tinyhook.h"
 #import "MemoryUtils.h"
-#import "encryp_utils.h"
+#import "EncryptionUtils.h"
 #import <objc/runtime.h>
 #include <mach-o/dyld.h>
-#import "HackProtocol.h"
+#import "HackProtocolDefault.h"
 #import "common_ret.h"
+#import "URLSessionHook.h"
 
-@interface DummyURLSessionDataTask : NSObject
-@end
-
-@implementation DummyURLSessionDataTask
-
-- (void)resume {
-    // 重写 resume 方法，使其不做任何事情
-    NSLog(@">>>>>> DummyURLSessionDataTask.resume");
-}
-
-@end
-
-
-@interface TablePlusHack : NSObject <HackProtocol>
+@interface TablePlusHack : HackProtocolDefault
 
 @end
 
 @implementation TablePlusHack
 
 static IMP urlWithStringSeletorIMP;
-static IMP NSURLSessionClassIMP;
+//static IMP NSURLSessionClassIMP;
 static IMP dataTaskWithRequestIMP;
 static IMP decryptDataIMP;
 
@@ -81,7 +69,7 @@ static IMP decryptDataIMP;
     NSString *appDirectory = [applicationSupportDirectory stringByAppendingPathComponent:bundleIdentifier];
     NSString *licensePath = [appDirectory stringByAppendingPathComponent:@".licensemac"];
     
-    NSLog(@">>>>>> License file path: %@", licensePath);
+    NSLogger(@"License file path: %@", licensePath);
     
     NSFileManager *fileManager = [NSFileManager defaultManager];
     BOOL fileExists = [fileManager fileExistsAtPath:licensePath];
@@ -89,33 +77,23 @@ static IMP decryptDataIMP;
     if (!fileExists) {
         NSString *licenseContent = @"?";
         BOOL success = [licenseContent writeToFile:licensePath atomically:YES encoding:NSUTF8StringEncoding error:nil];
-        NSLog(@">>>>>> License file: %hhd",success);
+        NSLogger(@"License file: %hhd",success);
     }
     
     
     // r12 = [[RNDecryptor decryptData:"file bytes" withPassword:"x" error:&var_48] retain];
     // +[RNDecryptor decryptData:withPassword:error:]:
-    Class RNDecryptorClz = NSClassFromString(@"RNDecryptor");
-    SEL decryptDataSel = NSSelectorFromString(@"decryptData:withPassword:error:");
-    Method decryptDataMethod = class_getClassMethod(RNDecryptorClz, decryptDataSel);
-    decryptDataIMP = method_getImplementation(decryptDataMethod);
-
-    [MemoryUtils hookClassMethod:
-         RNDecryptorClz
-                originalSelector:decryptDataSel
+    decryptDataIMP = [MemoryUtils hookClassMethod:
+                          NSClassFromString(@"RNDecryptor")
+                originalSelector:NSSelectorFromString(@"decryptData:withPassword:error:")
                    swizzledClass:[self class]
                 swizzledSelector:NSSelectorFromString(@"hk_decryptData:withPassword:error:")
     ];
     
     
     
-    Class AFURLSessionManagerClz = NSClassFromString(@"AFHTTPSessionManager");
-    SEL dataTaskWithRequestSel = NSSelectorFromString(@"dataTaskWithHTTPMethod:URLString:parameters:headers:uploadProgress:downloadProgress:success:failure:");
-    Method dataTaskWithRequestMethod = class_getInstanceMethod(AFURLSessionManagerClz, dataTaskWithRequestSel);
-    dataTaskWithRequestIMP = method_getImplementation(dataTaskWithRequestMethod);
-    [MemoryUtils hookInstanceMethod:
-         AFURLSessionManagerClz
-                   originalSelector:dataTaskWithRequestSel
+    dataTaskWithRequestIMP = [MemoryUtils hookInstanceMethod:NSClassFromString(@"AFHTTPSessionManager")
+                   originalSelector:NSSelectorFromString(@"dataTaskWithHTTPMethod:URLString:parameters:headers:uploadProgress:downloadProgress:success:failure:")
                       swizzledClass:[self class]
                    swizzledSelector:NSSelectorFromString(@"hk_dataTaskWithHTTPMethod:URLString:parameters:headers:uploadProgress:downloadProgress:success:failure:")
     ];
@@ -144,7 +122,7 @@ static IMP decryptDataIMP;
     
     // @"https://tableplus.com/v1/licenses/devices?deviceID=xxx"    0x0000600001f82a80
     if ([URLString containsString:@"tableplus.com"]) {
-        DummyURLSessionDataTask *dummyTask = [[DummyURLSessionDataTask alloc] init];
+        URLSessionHook *dummyTask = [[URLSessionHook alloc] init];
 
 //    loc_1002645ce:
 //        r14 = *qword_10093f548;
@@ -191,10 +169,10 @@ static IMP decryptDataIMP;
                 },
             });
         }
-        NSLog(@">>>>>> [hk_dataTaskWithHTTPMethod] Intercept url: %@, req params: %@",URLString,parameters);
+        NSLogger(@"[hk_dataTaskWithHTTPMethod] Intercept url: %@, req params: %@",URLString,parameters);
         return dummyTask;
     }
-    NSLog(@">>>>>> [hk_dataTaskWithHTTPMethod] Allow to pass url: %@",URLString);
+    NSLogger(@"[hk_dataTaskWithHTTPMethod] Allow to pass url: %@",URLString);
     return ((id(*)(id, SEL,NSString *,NSString *,id,id,id,id,id,id))dataTaskWithRequestIMP)(self, _cmd,method,URLString,parameters,headers,uploadProgress,downloadProgress,success,failure);
 }
 
@@ -223,7 +201,7 @@ static IMP decryptDataIMP;
 + (id)hk_URLWithString:arg1{
     
     if ([arg1 hasPrefix:@"https://"] && [arg1 containsString:@"tableplus"]) {
-        NSLog(@">>>>>> hk_URLWithString Intercept requests %@",arg1);
+        NSLogger(@"hk_URLWithString Intercept requests %@",arg1);
         arg1 =  @"https://127.0.0.1";
     }
     id ret = ((id(*)(id, SEL,id))urlWithStringSeletorIMP)(self, _cmd,arg1);

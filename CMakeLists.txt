@@ -7,6 +7,7 @@ enable_language(C)
 enable_language(CXX)
 enable_language(OBJC)
 enable_language(OBJCXX)
+#enable_language(Swift)
 
 
 set(CMAKE_C_STANDARD 17)
@@ -18,6 +19,10 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu17")
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++20")
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -x objective-c++")
+
+# Enable ARC
+set(CMAKE_OBJC_FLAGS "${CMAKE_OBJC_FLAGS} -fobjc-arc")
+set(CMAKE_OBJCXX_FLAGS "${CMAKE_OBJCXX_FLAGS} -fobjc-arc")
 
 #关闭编译器优化
 #set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O0")
@@ -32,6 +37,7 @@ set(COMPILE_OPTION
         -Wno-incompatible-pointer-types
         -Wno-int-to-void-pointer-cast
         -Wno-unguarded-availability-new # is only available on macOS 10.15 or newer
+        -ftrivial-auto-var-init=zero
 )
 
 set(LINK_OPTION
@@ -39,6 +45,7 @@ set(LINK_OPTION
         -x
 )
 
+# x86_64;arm64;arm64e
 set(CMAKE_OSX_ARCHITECTURES "x86_64;arm64")
 set(CMAKE_OSX_DEPLOYMENT_TARGET "14.2")
 
@@ -54,12 +61,15 @@ file(GLOB UtilsHeader ${CMAKE_SOURCE_DIR}/dylib_dobby_hook/utils/*.h)
 file(GLOB Apps ${CMAKE_SOURCE_DIR}/dylib_dobby_hook/apps/*.m)
 file(GLOB AppsHeader ${CMAKE_SOURCE_DIR}/dylib_dobby_hook/apps/*.h)
 
+file(GLOB Helpers ${CMAKE_SOURCE_DIR}/dylib_dobby_hook/helpers/*.m)
+file(GLOB HelpersHeader ${CMAKE_SOURCE_DIR}/dylib_dobby_hook/helpers/*.h)
 
 file(GLOB StaticLibs ${CMAKE_SOURCE_DIR}/libs/*.a)
 
 include_directories(
         ${CMAKE_SOURCE_DIR}/dylib_dobby_hook
         ${CMAKE_SOURCE_DIR}/dylib_dobby_hook/apps
+        ${CMAKE_SOURCE_DIR}/dylib_dobby_hook/helpers
         ${CMAKE_SOURCE_DIR}/dylib_dobby_hook/utils
 )
 
@@ -68,8 +78,72 @@ add_library(${PROJECT_NAME} SHARED
         ${MainHeader}
         ${UtilsHeader}
         ${AppsHeader}
+        ${HelpersHeader}
         ${Utils}
         ${Apps}
+        ${Helpers}
+)
+set_target_properties(${PROJECT_NAME} PROPERTIES
+        
+        EXECUTABLE_PREFIX "lib"
+        EXECUTABLE_EXTENSION "dylib"
+
+        # FRAMEWORK TRUE
+        # FRAMEWORK_VERSION A
+        # Mark which headers should public
+        # PUBLIC_HEADER "/usr/local/include"
+
+        ## ----------------------------------
+        ## Architecture
+        ## ----------------------------------
+        XCODE_ATTRIBUTE_ONLY_ACTIVE_ARCH[variant=Debug] "NO"
+        XCODE_ATTRIBUTE_ONLY_ACTIVE_ARCH[variant=Release] "NO"
+        ## ----------------------------------
+        ## Build Option
+        ## ----------------------------------
+        
+        XCODE_ATTRIBUTE_DEBUG_INFORMATION_FORMAT[variant=Debug] "dwarf"
+        XCODE_ATTRIBUTE_DEBUG_INFORMATION_FORMAT[variant=Release] "dwarf-with-dsym"
+
+        ## ----------------------------------
+        ## Deployment
+        ## ----------------------------------
+        XCODE_ATTRIBUTE_SKIP_INSTALL "YES"
+        # XCODE_ATTRIBUTE_INSTALL_PATH "$(LOCAL_LIBRARY_DIR)/Frameworks"
+
+        ## ----------------------------------
+        ## Link
+        ## ----------------------------------
+        # /usr/local/lib
+        XCODE_ATTRIBUTE_DYLIB_INSTALL_NAME_BASE "$(INSTALL_PATH)"
+        XCODE_ATTRIBUTE_LD_DYLIB_INSTALL_NAME "$(DYLIB_INSTALL_NAME_BASE:standardizepath)/$(EXECUTABLE_PATH)"
+        XCODE_ATTRIBUTE_LD_RUNPATH_SEARCH_PATHS "@executable_path/"
+        XCODE_ATTRIBUTE_DYLIB_COMPATIBILITY_VERSION "1"
+        XCODE_ATTRIBUTE_DYLIB_CURRENT_VERSION "1"
+
+        ## ----------------------------------
+        ## Apple Clang - Language - C/C++
+        ## ----------------------------------
+        XCODE_ATTRIBUTE_CLANG_GCC_C_LANGUAGE_STANDARD "gnu17"
+        XCODE_ATTRIBUTE_CLANG_CXX_LANGUAGE_STANDARD "gnu++20"
+        XCODE_ATTRIBUTE_CLANG_CXX_LIBRARY "libc++"
+        ## ----------------------------------
+        ## Apple Clang - Language - Modules
+        ## ----------------------------------
+        XCODE_ATTRIBUTE_CLANG_ENABLE_MODULES "YES"
+        ## ----------------------------------
+        ## Apple Clang - Language - Objective-C
+        ## ----------------------------------
+        # Enable ARC, cmake default is MRC
+        XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC "YES"
+        XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_WEAK "YES"
+        ## ----------------------------------
+        ## Apple Clang - Language - Code Generation
+        ## ----------------------------------
+        XCODE_ATTRIBUTE_GCC_GENERATE_DEBUGGING_SYMBOLS "YES"
+        
+        # Xcode 的Run 指令会自动 link 已经 dependency 的 target，不需要 CMake 的指令再 link 一遍，如果不是 Xcode Generate 则需要 CMake 进行 Link
+
 )
 
 
@@ -94,7 +168,8 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
         "-framework CoreWLAN"
 
         # 加入额外的库
-        objc
+        # ld: warning: ignoring duplicate libraries: '-lobjc'
+        # objc
         c++
         c
         ${StaticLibs}

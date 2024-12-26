@@ -1,54 +1,43 @@
 #!/bin/bash
 
+# xcode build
+# xcodebuild -scheme dylib_dobby_hook -configuration Release
 
-
-
-# 设置项目根目录
 PROJECT_ROOT=$(pwd)
-
-# 设置构建目录
 BUILD_DIR="$PROJECT_ROOT/cmake-build-release"
 
-
 rm -rf "$BUILD_DIR"
-
-# 创建构建目录
 mkdir -p "$BUILD_DIR"
-
-# 进入构建目录
 cd "$BUILD_DIR"
-
-# 运行 CMake 生成构建文件
-cmake "$PROJECT_ROOT"
-
-# 构建项目
+cmake -DCMAKE_BUILD_TYPE=Release "$PROJECT_ROOT" 
 make -j4
-
-# 安装项目
 make install
 
-echo "项目构建和安装完成."
-
+echo "✅ Project build and installation completed."
 
 cd "$PROJECT_ROOT"
-
-# 设置需要打包的文件列表
 FILES=(
   "release"
   "script"
   "tools"
 )
+EXCLUDE_FILES=(
+  "Organismo-mac.framework"
+  "script/apps/IDA/plugins/patching" # Too Big
+)
 
-
-# 设置压缩文件名称
 ARCHIVE_NAME="dylib_dobby_hook.tar.gz"
 
-# 创建压缩文件
-tar -czf "$ARCHIVE_NAME" "${FILES[@]}"
 
-echo "已将以下文件打包到 $ARCHIVE_NAME:"
-for file in "${FILES[@]}"; do
-  echo "- $file"
+EXCLUDE_PARAMS=()
+for exclude in "${EXCLUDE_FILES[@]}"; do
+  EXCLUDE_PARAMS+=(--exclude="$exclude")
 done
 
 
+tar -czf "$ARCHIVE_NAME" "${EXCLUDE_PARAMS[@]}" "${FILES[@]}"
+
+echo "✅ The following files have been packed into $ARCHIVE_NAME:"
+for file in "${FILES[@]}"; do
+  echo "- $file"
+done

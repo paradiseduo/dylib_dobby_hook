@@ -9,53 +9,13 @@
 
 - (NSString *)getAppName;
 - (NSString *)getSupportAppVersion;
+
+/**
+ * 判断当前应用是否需要注入。
+ * 默认根据 AppName 前缀匹配，如果需要自定义，请在实现类中自行实现。
+ */
+- (BOOL)shouldInject:(NSString *)target;
+
 - (BOOL)hack;
 @end
 
-
-@interface NSObject (HackProtocolDefaults) <HackProtocol>
-- (void)ret;
-- (void)ret_;
-- (void)ret__;
-
-- (int)ret1;
-- (int)ret0;
-+ (int)ret1;
-+ (int)ret0;
-
-@end
-
-@implementation NSObject (HackProtocolDefaults)
-
-- (void)ret {
-    NSLog(@">>>>>> called - ret");
-}
-- (void)ret_ {
-    NSLog(@">>>>>> called - ret_");
-}
-- (void)ret__ {
-    NSLog(@">>>>>> called - ret__");
-}
-
-- (int)ret1 {
-    NSLog(@">>>>>> called - ret1");
-    return 1;
-}
-- (int)ret0 {
-    NSLog(@">>>>>> called - ret0");
-    return 0;
-}
-+ (int)ret1 {
-    NSLog(@">>>>>> called + ret1");
-    return 1;
-}
-+ (int)ret0 {
-    NSLog(@">>>>>> called + ret0");
-    return 0;
-}
-+ (void)ret {
-    NSLog(@">>>>>> called + ret");
-}
-
-
-@end

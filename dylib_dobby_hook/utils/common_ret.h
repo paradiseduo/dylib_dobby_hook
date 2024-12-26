@@ -2,7 +2,7 @@
 //  common_ret.h
 //  dylib_dobby_hook
 //
-//  Created by 马治武 on 2024/4/9.
+//  Created by voidm on 2024/4/9.
 //
 
 #ifndef common_ret_h
@@ -12,17 +12,16 @@
 
 #import <Foundation/Foundation.h>
 #import "Constant.h"
-#import "dobby.h"
+#import "tinyhook.h"
 #import "MemoryUtils.h"
 #import <objc/runtime.h>
 #include <mach-o/dyld.h>
-#import "HackProtocol.h"
 #include <sys/ptrace.h>
 #import <objc/message.h>
 #import "common_ret.h"
 #include <sys/xattr.h>
 #import <CommonCrypto/CommonCrypto.h>
-#import "encryp_utils.h"
+#import "EncryptionUtils.h"
 #import <sys/ptrace.h>
 #import <sys/sysctl.h>
 #include <dlfcn.h>
@@ -39,6 +38,7 @@ int ret2 (void);
 int ret1 (void);
 int ret0 (void);
 void ret(void);
+
 
 // AntiAntiDebug 反反调试相关
 typedef int (*ptrace_ptr_t)(int _request, pid_t _pid, caddr_t _addr, int _data);
@@ -99,8 +99,52 @@ kern_return_t my_task_swap_exception_ports
  );
 extern task_swap_exception_ports_ptr_t orig_task_swap_exception_ports;
 
+
+
+/// Apple Sec..
+typedef OSStatus (*SecCodeCheckValidity_ptr_t)(SecCodeRef staticCode, SecCSFlags flags, SecRequirementRef requirement);
+OSStatus hk_SecCodeCheckValidity(SecCodeRef staticCode, SecCSFlags flags, SecRequirementRef requirement);
+extern SecCodeCheckValidity_ptr_t SecCodeCheckValidity_ori;
+
+
+typedef OSStatus (*SecStaticCodeCheckValidity_ptr_t)(SecStaticCodeRef staticCode, SecCSFlags flags, SecRequirementRef requirement);
+OSStatus hk_SecStaticCodeCheckValidity(SecStaticCodeRef staticCode, SecCSFlags flags, SecRequirementRef requirement);
+extern SecStaticCodeCheckValidity_ptr_t SecStaticCodeCheckValidity_ori;
+
+typedef OSStatus (*SecCodeCheckValidityWithErrors_ptr_t)(SecCodeRef code, SecCSFlags flags, SecRequirementRef requirement, CFErrorRef *errors);
+OSStatus hk_SecCodeCheckValidityWithErrors(SecCodeRef code, SecCSFlags flags, SecRequirementRef requirement, CFErrorRef *errors);
+extern SecCodeCheckValidityWithErrors_ptr_t SecCodeCheckValidityWithErrors_ori;
+
+typedef OSStatus (*SecStaticCodeCheckValidityWithErrors_ptr_t)(SecStaticCodeRef code, SecCSFlags flags, SecRequirementRef requirement, CFErrorRef *errors);
+OSStatus hk_SecStaticCodeCheckValidityWithErrors(SecStaticCodeRef code, SecCSFlags flags, SecRequirementRef requirement, CFErrorRef *errors);
+extern SecStaticCodeCheckValidityWithErrors_ptr_t SecStaticCodeCheckValidityWithErrors_ori;
+
+
+extern const char* teamIdentifier_ori;
+typedef OSStatus (*SecCodeCopySigningInformation_ptr_t)(SecCodeRef codeRef, SecCSFlags flags, CFDictionaryRef *signingInfo);
+OSStatus hk_SecCodeCopySigningInformation(SecCodeRef codeRef, SecCSFlags flags, CFDictionaryRef *signingInfo);
+extern SecCodeCopySigningInformation_ptr_t SecCodeCopySigningInformation_ori;
+
+
+/// KeyChain
+/**
+ * Fallbacks for SecItem APIs using SecKeychain due to code signature issues.
+ * - hk_SecItemAdd: Adds a password.
+ * - hk_SecItemUpdate: Updates a password.
+ * - hk_SecItemDelete: Deletes an item.
+ * - hk_SecItemCopyMatching: Retrieves an item.
+ */
+OSStatus hk_SecItemAdd(CFDictionaryRef attributes, CFTypeRef *result);
+OSStatus hk_SecItemUpdate(CFDictionaryRef query, CFDictionaryRef attributesToUpdate);
+OSStatus hk_SecItemDelete(CFDictionaryRef query);
+OSStatus hk_SecItemCopyMatching(CFDictionaryRef query, CFTypeRef *result);
+
 NSString *love69(NSString *input);
 
 //// 声明全局的邮件地址
 //extern char *global_dylib_name;
+//int inject_dylib(pid_t pid, const char *lib);
+
+int destory_inject_thread(void);
+
 #endif /* common_ret_h */

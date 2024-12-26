@@ -2,46 +2,72 @@
 //  DownieHack.m
 //  dylib_dobby_hook
 //
-//  Created by 马治武 on 2024/4/3.
+//  Created by voidm on 2024/4/3.
 //
 
 #import <Foundation/Foundation.h>
 #import "Constant.h"
-#import "dobby.h"
+#import "tinyhook.h"
 #import "MemoryUtils.h"
 #import <objc/runtime.h>
 #include <mach-o/dyld.h>
 #import <Cocoa/Cocoa.h>
-#import "HackProtocol.h"
+#import "HackProtocolDefault.h"
 #import "common_ret.h"
+#import "URLSessionHook.h"
+#import "EncryptionUtils.h"
 
-@interface PaddleBaseHack : NSObject <HackProtocol>
+
+
+@interface PaddleBaseHack : HackProtocolDefault
 
 @end
 
 @implementation PaddleBaseHack
 
-- (NSString *)getAppName {
-    return @"com.charliemonroe.";
+IMP initWithProductIDIMP;
+IMP dataTaskWithRequestIMP;
+
+- (BOOL)shouldInject:(NSString *)target {
+    
+//    Movist Pro
+//    Downie 4
+//    Fork
+//    BetterMouse
+//    Permute 3
+    
+    // double check
+    if ([[Constant getCurrentAppName] containsString:@"com.bjango.istatmenus"]) {
+        return false;
+    }
+    if ([[Constant getCurrentAppName] containsString:@"codes.rambo.AirBuddy"]) {
+        return false;
+    }
+    
+    int paddleIndex = [MemoryUtils indexForImageWithName:@"Paddle"];
+    if (paddleIndex > 0) {
+        return true;
+    }
+    return false;
 }
 
-- (NSString *)getSupportAppVersion {
-    // downie 4.7.8
-    // permute 3.11.8
-    return @"";
-}
+//- (NSString *)getAppName {
+//    return @"com.charliemonroe.";
+//}
+//
+
 - (NSNumber *) hook_trialDaysRemaining {
-    NSLog(@">>>>>> called hook_trialDaysRemaining");
+    NSLogger(@"called hook_trialDaysRemaining");
     return @9;
 }
 
 - (void) hook_viewDidLoad {
-    NSLog(@">>>>>> called hook_viewDidLoad");
+    NSLogger(@"called hook_viewDidLoad");
     [self valueForKey:@"window"];
     return ;
 }
 - (void) hook_windowDidLoad {
-    NSLog(@">>>>>> called hook_windowDidLoad");
+    NSLogger(@"called hook_windowDidLoad");
 //    [0]    _TtC9Licensing27CMLicensingWindowController
     NSWindow *window = [self valueForKey:@"window"];
 //    viewController    _TtC9Licensing25CMLicensingViewController
@@ -52,24 +78,24 @@
 }
 
 - (NSNumber *) hook_trialLength2 {
-    NSLog(@">>>>>> called hook_trialLength2");
+    NSLogger(@"called hook_trialLength2");
     return @9;
 }
 
 
 //- (BOOL) hook_isLicensed{
-//    NSLog(@">>>>>> called hook_isLicensed");
+//    NSLogger(@"called hook_isLicensed");
 //    return YES;
 //}
 //
 //- (BOOL) hook_activated{
-//    NSLog(@">>>>>> called hook_activated");
+//    NSLogger(@"called hook_activated");
 //    return YES;
 //}
 
 
 - (NSDate *) hook_activationDate{
-    NSLog(@">>>>>> called hook_activationDate");
+    NSLogger(@"called hook_activationDate");
     NSCalendar *calendar = [NSCalendar currentCalendar];
     NSDateComponents *components = [[NSDateComponents alloc] init];
     [components setYear:2099];
@@ -82,95 +108,102 @@
     return date;
 }
 - (NSString *) hook_licenseCode{
-    NSLog(@">>>>>> called hook_licenseCode");
-    NSUUID *uuid = [NSUUID UUID];
-    return [uuid UUIDString];
+    NSLogger(@"called hook_licenseCode");
+    static NSString *uuidString = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        uuidString = [[NSUUID UUID] UUIDString];
+        NSLogger(@"UUID initialized: %@", uuidString);
+
+    });
+    return uuidString;
 //    return @"B7EE3D3C-B7EE3D3C-B7EE3D3C-B7EE3D3C-B7EE3D3C";
 }
 
 - (NSString *) hook_activationEmail{
-    NSLog(@">>>>>> called hook_activationEmail");
+    NSLogger(@"called hook_activationEmail");
     return [Constant G_EMAIL_ADDRESS];
 }
 
-//- (void) hook_verifyActivationDetailsWithCompletion:(id) arg1{
-//    NSLog(@">>>>>> called hook_verifyActivationDetailsWithCompletion");
-//    return;
+
+//- (id)hook_initWithProductID:(NSString *)productID andLicenseController:(id)licenseController {
+//    NSLogger(@"called hook_initWithProductID");
+//    id ret =  ((id(*)(id, SEL, id,id))initWithProductIDIMP)(self, _cmd, productID,licenseController);
+//    return ret;
 //}
 
+- (id) hook_dataTaskWithRequest:(NSMutableURLRequest*)request completionHandler:(NSCompletionHandler)completionHandler{
+    
+    NSURL *url = [request URL];
+    NSString *urlString = [url absoluteString];
+    if ([urlString containsString:@"v3.paddleapi.com"] && completionHandler) {
+        URLSessionHook *dummyTask = [[URLSessionHook alloc] init];
+        // 在 Objective-C 中，completionHandler 是一种常见的异步编程模式，它通常用于在一个操作完成后执行一些额外的代码或处理结果。
+        __auto_type wrapper = ^(NSError *error, NSDictionary *data) {
+            __auto_type resp = [[NSHTTPURLResponse alloc] initWithURL:url statusCode:200 HTTPVersion:@"1.1" headerFields:@{}];
+            NSData *body = [NSJSONSerialization dataWithJSONObject:data options:0 error: &error];
+            completionHandler(body, resp,error);
+        };
+        NSDictionary *respBody;
+        NSString *reqBody = [[NSString alloc] initWithData:[request HTTPBody] encoding:NSUTF8StringEncoding];
+        NSString *productId = [EncryptionUtils  getTextBetween:@"product_id=" and:@"&" inString:reqBody];
+        
+        if ([urlString containsString:@"/3.2/license/activate"]) {
+            respBody = @{
+                @"success": @YES,
+                @"response": @{
+                        @"activation_id": [Constant G_EMAIL_ADDRESS],
+                        @"allowed_uses": @"10",
+                        @"expires": @NO,
+                        @"expiry_date": @"2500-12-30",
+                        @"product_id": productId,
+                        @"times_used": @"1",
+                        @"type": @"activation_license",
+                        @"user_id": @""
+                },
+                @"signature": @""
+            };
+        } else if([urlString containsString:@"/3.2/license/deactivate"]) {
+            respBody =@{
+                @"success": @YES,
+                @"response": @{},
+                @"signature": @""
+            };
+        }else if([urlString containsString:@"/3.2/product/data"]) {
+            // https://v3.paddleapi.com/3.2/product/data
+            respBody =@{
+                @"success": @YES,
+                @"response": @{},
+                @"signature": @""
+            };
+        } else {
+            NSLogger(@"[hook_dataTaskWithRequest] Allow to pass url: %@",url);
+            return ((id(*)(id, SEL,id,id))dataTaskWithRequestIMP)(self, _cmd,request,completionHandler);
+
+        }
+        NSLogger(@"[hook_dataTaskWithRequest] Intercept url: %@, request body: %@, response body: %@",url, reqBody,respBody);
+        if (completionHandler) {
+            wrapper(nil,respBody);
+        }        
+        return dummyTask;
+;
+    }
+    NSLogger(@"[hook_dataTaskWithRequest] Allow to pass url: %@",url);
+    return ((id(*)(id, SEL,id,id))dataTaskWithRequestIMP)(self, _cmd,request,completionHandler);
+}
+
 - (BOOL)hack {
+        
+    if ([[Constant getCurrentAppName] containsString:@"mindmac"]) {
+        NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+        [defaults setObject:@"Basic" forKey:@"licenseType"];
+        [defaults setObject:@YES forKey:@"licenseStatusChanged"];
+        [defaults synchronize];
+    }
 //    license eg: B7EE3D3C-B7EE3D3C-B7EE3D3C-B7EE3D3C-B7EE3D3C
-    
-//    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(10 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-//        // 在这里执行你的代码
-//        NSLog(@">>>>>>> 代码延迟执行了10秒");
-//        // 获取当前应用程序的所有窗口
-//        NSArray<NSWindow *> *allWindows = [NSApplication sharedApplication].windows;
-//        
-//        NSString *viewControllerClassName = @"Licensing.CMLicensingViewController";
-//        Class viewControllerClass = NSClassFromString(viewControllerClassName);
-//        
-//        // 遍历所有窗口，查找目标窗口
-//        for (NSWindow *window in allWindows) {
-//            NSLog(@">>>>>> Window class name: %@", NSStringFromClass([window class]));
-//            //            [window orderOut:nil]; // 隐藏窗口
-//            NSViewController *viewController = window.contentViewController;
-//            if (viewController != nil) {
-//                // 窗口关联了一个视图控制器
-//                NSLog(@"Window is associated with view controller: %@", viewController);
-//                if ([viewController isKindOfClass:viewControllerClass]) {
-//                    NSLog(@"Window is associated with view controller: %@", viewController);
-//                    // 隐藏窗口
-//                    // [window orderOut:nil];
-//                    // 或者销毁窗口
-//                    // [window close];
-//                }
-//            } else {
-//                // 窗口没有关联视图控制器
-//                NSLog(@"Window is not associated with any view controller");
-//            }
-//        }
-//    });
-    
-    
-//    boom 爆破
-//    // -[_TtC9Licensing27CMLicensingWindowController windowDidLoad]:        // -[Licensing.CMLicensingWindowController windowDidLoad]
-//    [MemoryUtils hookInstanceMethod:
-//         objc_getClass("Licensing.CMLicensingWindowController")
-//                   originalSelector:NSSelectorFromString(@"windowDidLoad")
-//                      swizzledClass:[self class]
-//                   swizzledSelector:NSSelectorFromString(@"hook_windowDidLoad")
-//    ];
-//    //  viewDidLoad
-//    [MemoryUtils hookInstanceMethod:
-//         objc_getClass("Licensing.CMLicensingViewController")
-//                   originalSelector:NSSelectorFromString(@"viewDidLoad")
-//                      swizzledClass:[self class]
-//                   swizzledSelector:NSSelectorFromString(@"hook_viewDidLoad")
-//    ];
-//    
-//    [MemoryUtils hookInstanceMethod:
-//         objc_getClass("PADProduct")
-//                   originalSelector:NSSelectorFromString(@"trialLength")
-//                      swizzledClass:[self class]
-//                   swizzledSelector:NSSelectorFromString(@"hook_trialLength2")
-//     
-//    ];
-//    //    trialDaysRemaining
-//    [MemoryUtils hookInstanceMethod:
-//         objc_getClass("PADProduct")
-//                   originalSelector:NSSelectorFromString(@"trialDaysRemaining")
-//                      swizzledClass:[self class]
-//                   swizzledSelector:NSSelectorFromString(@"hook_trialDaysRemaining")
-//     
-//    ];
-    
-    
-    
-    
 //    license HOOK
 //    -[PADProduct activated]:    
-    [MemoryUtils hookInstanceMethod:
+    [MemoryUtils replaceInstanceMethod:
          objc_getClass("PADProduct")
                    originalSelector:NSSelectorFromString(@"activated")
                       swizzledClass:[self class]
@@ -178,6 +211,17 @@
 
     ];
     
+    // -[PADProduct initWithProductID:andLicenseController:]
+//    initWithProductIDIMP = [MemoryUtils replaceInstanceMethod:
+//         objc_getClass("PADProduct")
+//                   originalSelector:NSSelectorFromString(@"initWithProductID:andLicenseController:")
+//                      swizzledClass:[self class]
+//                      swizzledSelector:@selector(hook_initWithProductID:andLicenseController:)
+//
+//    ];
+//        
+   
+    // shouldTrackTrialStartDate
     [MemoryUtils hookInstanceMethod:
          objc_getClass("PADProduct")
                    originalSelector:NSSelectorFromString(@"activationDate")
@@ -207,54 +251,13 @@
 
     ];
     
-//            // Licensing.CMLicensing.numberOfTrialDays.getter
-//            // 反射创建类实例
-//            Class Dcls=NSClassFromString(@"Licensing.CMLicensingViewController");
-//            id dobj=[[Dcls alloc] init];
-//        
-//            // 反射创建无类实例(也叫类对象)
-//            Class currentClass=objc_getMetaClass("Licensing.CMLicensingViewController");
-//            // id dclsobj=[[currentClass alloc] init];
-//        
-//            // 获取类的方法列表
-//            unsigned int classMethodCount;
-//            Method *classMethods = class_copyMethodList(currentClass, &classMethodCount);
-//            NSLog(@"Class Methods:");
-//            for (unsigned int i = 0; i < classMethodCount; i++) {
-//                SEL selector = method_getName(classMethods[i]);
-//                NSLog(@"- %@", NSStringFromSelector(selector));
-//            }
-//            free(classMethods);
-//        
-//            // 获取类的属性列表
-//            unsigned int classPropertyCount;
-//            objc_property_t *classProperties = class_copyPropertyList(currentClass, &classPropertyCount);
-//            NSLog(@"Class Properties:");
-//            for (unsigned int i = 0; i < classPropertyCount; i++) {
-//                const char *propertyName = property_getName(classProperties[i]);
-//                NSLog(@"- %s", propertyName);
-//            }
-//            free(classProperties);
-//        
-//            // 获取实例的方法列表
-//            unsigned int instanceMethodCount;
-//            Method *instanceMethods = class_copyMethodList(Dcls, &instanceMethodCount);
-//            NSLog(@"Instance Methods:");
-//            for (unsigned int i = 0; i < instanceMethodCount; i++) {
-//                SEL selector = method_getName(instanceMethods[i]);
-//                NSLog(@"- %@", NSStringFromSelector(selector));
-//            }
-//            free(instanceMethods);
-//        
-//            // 获取实例的属性列表
-//            unsigned int instancePropertyCount;
-//            objc_property_t *instanceProperties = class_copyPropertyList(Dcls, &instancePropertyCount);
-//            NSLog(@"Instance Properties:");
-//            for (unsigned int i = 0; i < instancePropertyCount; i++) {
-//                const char *propertyName = property_getName(instanceProperties[i]);
-//                NSLog(@"- %s", propertyName);
-//            }
-//            free(instanceProperties);
+    dataTaskWithRequestIMP = [MemoryUtils hookInstanceMethod:
+                                  NSClassFromString(@"NSURLSession")
+                   originalSelector:NSSelectorFromString(@"dataTaskWithRequest:completionHandler:")
+                      swizzledClass:[self class]
+                   swizzledSelector:NSSelectorFromString(@"hook_dataTaskWithRequest:completionHandler:")
+    ];
+    
     return YES;
 }
 @end

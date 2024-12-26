@@ -2,20 +2,19 @@
 //  InfuseHack.m
 //  dylib_dobby_hook
 //
-//  Created by 马治武 on 2024/5/11.
+//  Created by voidm on 2024/5/11.
 //
 
 #import <Foundation/Foundation.h>
 #import "Constant.h"
-#import "dobby.h"
+#import "tinyhook.h"
 #import "MemoryUtils.h"
 #import <objc/runtime.h>
-#import "HackProtocol.h"
 #include <sys/ptrace.h>
 #import "common_ret.h"
+#import "HackProtocolDefault.h"
 
-
-@interface InfuseHack : NSObject <HackProtocol>
+@interface InfuseHack : HackProtocolDefault
 
 
 
@@ -31,12 +30,12 @@
 }
 
 - (NSString *)getSupportAppVersion {
-    return @"7.7";
+    return @"8";
 }
 
 - (BOOL)hack {
    
-    DobbyHook((void *)ptrace, (void *)my_ptrace, (void *)&orig_ptrace);
+    tiny_hook((void *)ptrace, (void *)my_ptrace, (void *)&orig_ptrace);
 
     [MemoryUtils hookInstanceMethod:
                 objc_getClass("FCInAppPurchaseServiceFreemium")
@@ -45,6 +44,29 @@
                 swizzledSelector:@selector(ret1)
     ];
 
+    [self hook_AllSecItem];
+    
+    [MemoryUtils hookClassMethod:
+         NSClassFromString(@"NSUbiquitousKeyValueStore")
+                   originalSelector:NSSelectorFromString(@"defaultStore")
+                      swizzledClass:[self class]
+                   swizzledSelector:@selector(hook_defaultStore)
+    ];
+
+    [MemoryUtils hookClassMethod:
+        NSClassFromString(@"CKContainer")
+                  originalSelector:NSSelectorFromString(@"containerWithIdentifier:")
+                     swizzledClass:[self class]
+                  swizzledSelector:@selector(hook_containerWithIdentifier: )
+    ];
+    [MemoryUtils hookClassMethod:
+        NSClassFromString(@"CKContainer")
+                  originalSelector:NSSelectorFromString(@"defaultContainer")
+                     swizzledClass:[self class]
+                  swizzledSelector:@selector(hook_defaultContainer)
+
+    ];
+    
     return YES;
 }
 

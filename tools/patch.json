@@ -1,6 +1,6 @@
 {
   "Surge": {
-    "patch": {
+    "//patch": {
       "/Applications/Surge.app/Contents/Library/LaunchServices/com.nssurge.surge-mac.helper": {
         "x86": {
           "55 48 89 E5 41 57 41 56 41 55 41 54 53 48 83 EC 58 48 89 FB 4C 8D 7D C0 49 C7 07 00 00 00 00 48 8B .. .. .. .. .. 48 8B 53 20 48 8B .. .. .. .. .. 4C 8B .. .. .. .. .. 41 FF D6": "6A 01 58 C3"
@@ -10,9 +10,52 @@
         }
       }
     },
-    "clear_certificate":[
+    "helper_plist_resign":[
         "/Applications/Surge.app/Contents/Library/LaunchServices/com.nssurge.surge-mac.helper"
     ]
+  },
+  "ForkLift":{
+    "helper_plist_resign":[
+        "/Applications/ForkLift.app/Contents/Library/LaunchServices/com.binarynights.ForkLiftHelper"
+    ]
+  },
+  "SMJobBlessApp":{
+    "helper_plist_resign":[
+        "/Applications/SMJobBlessApp.app/Contents/Library/LaunchServices/com.apple.bsd.SMJobBlessHelper"
+    ]
+  },
+  "Proxyman":{
+    "helper_plist_resign":[
+        "/Applications/Proxyman.app/Contents/Library/LaunchServices/com.proxyman.NSProxy.HelperTool"
+    ]
+  },
+  "IDA":{
+    "patch":{
+      "/Applications/IDA Professional 9.0.app/Contents/MacOS/libida.dylib":{
+        "x86": {
+          "ED FD 42 5C F9 78": "ED FD 42 CB F9 78"
+        },
+        "arm":{
+          "ED FD 42 5C F9 78": "ED FD 42 CB F9 78"
+        }
+      },
+      "/Applications/IDA Professional 9.0.app/Contents/MacOS/libida32.dylib":{
+        "x86": {
+          "ED FD 42 5C F9 78": "ED FD 42 CB F9 78"
+        },
+        "arm":{
+          "ED FD 42 5C F9 78": "ED FD 42 CB F9 78"
+        }
+      },
+      "/Applications/IDA Professional 9.0.app/Contents/MacOS/libida64.dylib":{
+        "x86": {
+          "ED FD 42 5C F9 78": "ED FD 42 CB F9 78"
+        },
+        "arm":{
+          "ED FD 42 5C F9 78": "ED FD 42 CB F9 78"
+        }
+      }
+    }
   }
 }
 
